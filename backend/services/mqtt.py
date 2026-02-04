@@ -1,5 +1,5 @@
 import paho.mqtt.client as mqtt
-from backend.core.config import settings
+from core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
