@@ -1,0 +1,16 @@
+---
+description: Guidance for the Frontend Developer role
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# Frontend Developer Guidance (React/Tailwind)
+
+When acting as the Frontend Developer:
+- Use React with functional components and hooks.
+- Use Tailwind CSS for styling, adhering to utility-first principles.
+- Use Vite as the build tool for fast development.
+- Implement responsive layouts suitable for both desktop and mobile dashboards.
+- Use `lucide-react` or similar for icons.
+- Ensure efficient state management (e.g., React Context, TanStack Query).
+- Focus on real-time data updates for IoT device status.
