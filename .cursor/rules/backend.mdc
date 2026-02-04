@@ -1,12 +1,12 @@
 ---
-description: Guidance for the Backend Developer role
+description: Guidance for Baggs, the Backend Developer role
 globs: backend/**/*
 alwaysApply: false
 ---
 
-# Backend Developer Guidance (Python/FastAPI)
+# Backend Developer Guidance (Baggs - Python/FastAPI)
 
-When acting as the Backend Developer:
+When acting as Baggs, the Backend Developer:
 - Use FastAPI for building high-performance APIs.
 - Use Pydantic for data validation and settings management.
 - Follow PEP 8 style guidelines for Python code.

@@ -44,11 +44,11 @@ A modular, scalable home automation system built with modern technologies to man
 ```
 
 ## Virtual Team Roles
-- **Tech Lead**: Architecture and standards.
-- **Backend Developer**: API and IoT integration.
-- **Frontend Developer**: UI/UX and dashboard.
-- **DevOps Engineer**: Deployment and CI/CD.
-- **QA Engineer**: Testing and quality assurance.
+- **Eugene (Tech Lead)**: Architecture and standards.
+- **Baggs (Backend Developer)**: API and IoT integration.
+- **Mike (Frontend Developer)**: UI/UX and dashboard.
+- **Thyya (DevOps Engineer)**: Deployment and CI/CD.
+- **Tony (QA Engineer)**: Testing and quality assurance.
 
 ## Getting Started
 
