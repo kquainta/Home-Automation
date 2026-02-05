@@ -175,3 +175,8 @@ desktop.ini
 backend/venv/
 frontend/dist/
 frontend/.env
+
+# GCP credentials (never commit)
+*-gcp-key.json
+gcp-service-account*.json
+scripts/*-gcp-key.json

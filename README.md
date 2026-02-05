@@ -15,4 +15,7 @@ This project is developed by a virtual team of AI agents. See [AGENTS.md](./AGEN
 - `scripts/`: Utility scripts for development and deployment.
 
 ## Getting Started
-(To be updated once the technology stack is finalized)
+See [docs/setup-info.md](./docs/setup-info.md) for local development with Docker.
+
+## Deployment
+To deploy on **Google Cloud Platform (GCP)** (Compute Engine VM or Cloud Run), see [docs/gcp-deployment.md](./docs/gcp-deployment.md).
