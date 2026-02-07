@@ -41,13 +41,12 @@ if (-not $vmExists) {
     Write-Host "VM $VM_NAME already exists."
 }
 
-# 2. Firewall
+# 2. Firewall (idempotent: ignore error if rule exists)
 Write-Host "Ensuring firewall rule allow-http exists..."
-gcloud compute firewall-rules create allow-http `
-    --project=$GCP_PROJECT `
-    --allow=tcp:80,tcp:8000,tcp:1883 `
-    --target-tags=http-server `
-    --source-ranges=0.0.0.0/0 2>$null
+$allowList = "tcp:80,tcp:8000,tcp:1883"
+try {
+  gcloud compute firewall-rules create allow-http --project=$GCP_PROJECT --allow=$allowList --target-tags=http-server --source-ranges=0.0.0.0/0 2>&1 | Out-Null
+} catch { }
 
 # 3. External IP
 $EXTERNAL_IP = gcloud compute instances describe $VM_NAME `
@@ -87,27 +86,11 @@ Write-Host "Copying project to VM..."
 gcloud compute scp $tarPath "${VM_NAME}:${REMOTE_TAR}" --zone=$GCP_ZONE --project=$GCP_PROJECT
 Remove-Item $tarPath -ErrorAction SilentlyContinue
 
-Write-Host "Extracting and starting containers on VM..."
-$remoteCmd = @"
-set -e
-if ! command -v docker &>/dev/null; then
-  echo 'Docker not found on VM, installing via get.docker.com (1-2 min)...'
-  sudo rm -f /etc/apt/sources.list.d/docker.list
-  sudo apt-get update -qq
-  sudo apt-get install -y ca-certificates curl
-  curl -fsSL https://get.docker.com | sudo sh
-  sudo apt-get install -y docker-compose-plugin 2>/dev/null || true
-  echo 'Docker installed.'
-fi
-mkdir -p home-automation
-cd home-automation
-tar xzf $REMOTE_TAR
-rm -f $REMOTE_TAR
-sudo docker compose -f docker-compose.prod.yml build --build-arg VITE_API_URL='$VITE_API_URL'
-sudo docker compose -f docker-compose.prod.yml up -d
-echo ''
-echo 'Containers started.'
-"@
+# Build timestamp so UI can show which deploy is running (avoids stale-cache confusion)
+$buildTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mmZ")
+Write-Host "Extracting and starting containers on VM (frontend build: $buildTime)..."
+# Force clean frontend build (--no-cache) so UI changes always appear after deploy
+$remoteCmd = "set -o errexit; if ! command -v docker 2>/dev/null; then echo 'Installing Docker...'; sudo rm -f /etc/apt/sources.list.d/docker.list; sudo apt-get update -qq; sudo apt-get install -y ca-certificates curl; curl -fsSL https://get.docker.com | sudo sh; sudo apt-get install -y docker-compose-plugin 2>/dev/null || true; fi; mkdir -p home-automation; cd home-automation; tar xzf /tmp/deploy.tar.gz; rm -f /tmp/deploy.tar.gz; sudo docker compose -f docker-compose.prod.yml build --no-cache --build-arg VITE_API_URL=$VITE_API_URL --build-arg VITE_BUILD_TIME=$buildTime frontend; sudo docker compose -f docker-compose.prod.yml build --build-arg VITE_API_URL=$VITE_API_URL --build-arg VITE_BUILD_TIME=$buildTime; sudo docker compose -f docker-compose.prod.yml up -d; echo 'Containers started.'"
 gcloud compute ssh $VM_NAME --zone=$GCP_ZONE --project=$GCP_PROJECT --command=$remoteCmd
 
 Write-Host "`n=== Deployment complete ==="

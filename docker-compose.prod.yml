@@ -6,8 +6,6 @@
 #   docker compose -f docker-compose.prod.yml build --build-arg VITE_API_URL=$VITE_API_URL
 #   docker compose -f docker-compose.prod.yml up -d
 
-version: '3.8'
-
 services:
   backend:
     build:
@@ -28,6 +26,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+        VITE_BUILD_TIME: ${VITE_BUILD_TIME:-}
     ports:
       - "80:80"
     depends_on:
