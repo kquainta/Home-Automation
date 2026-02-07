@@ -92,7 +92,10 @@ gcloud compute scp "$TARBALL" "${VM_NAME}:${REMOTE_TAR}" \
   --zone="$GCP_ZONE" \
   --project="$GCP_PROJECT"
 
-echo "Extracting and starting containers on VM..."
+# Build timestamp so UI can show which deploy is running (avoids stale-cache confusion)
+VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%MZ)
+echo "Extracting and starting containers on VM (frontend build: $VITE_BUILD_TIME)..."
+# Force clean frontend build (--no-cache) so UI changes always appear after deploy
 # Install Docker on VM if missing (startup script may not have run or finished in time)
 gcloud compute ssh "$VM_NAME" \
   --zone="$GCP_ZONE" \
@@ -112,7 +115,8 @@ gcloud compute ssh "$VM_NAME" \
     cd home-automation
     tar xzf $REMOTE_TAR
     rm -f $REMOTE_TAR
-    sudo docker compose -f docker-compose.prod.yml build --build-arg VITE_API_URL='$VITE_API_URL'
+    sudo docker compose -f docker-compose.prod.yml build --no-cache --build-arg VITE_API_URL=$VITE_API_URL --build-arg VITE_BUILD_TIME=$VITE_BUILD_TIME frontend
+    sudo docker compose -f docker-compose.prod.yml build --build-arg VITE_API_URL=$VITE_API_URL --build-arg VITE_BUILD_TIME=$VITE_BUILD_TIME
     sudo docker compose -f docker-compose.prod.yml up -d
     echo ''
     echo 'Containers started.'

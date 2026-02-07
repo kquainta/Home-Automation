@@ -24,4 +24,18 @@ a:hover {
   .accent-gradient {
     background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
   }
+  /* Section tiles – consistent containers (reference: rounded-3xl, p-8) */
+  .tile {
+    @apply glass rounded-3xl;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  }
+  .tile-section {
+    @apply tile p-8;
+  }
+  .tile-card {
+    @apply glass rounded-2xl p-4 border border-white/5 hover:border-white/15 transition-colors;
+  }
+  .tile-action {
+    @apply tile-card flex flex-col items-center justify-center gap-2 text-center min-h-[100px] cursor-pointer;
+  }
 }
