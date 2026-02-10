@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    # Dev: allow POST /auth/dev/clear-users to reset all users. Set to false in production.
+    ALLOW_DEV_CLEAR_USERS: bool = True
     
     # MQTT Settings
     MQTT_BROKER: str = "localhost"

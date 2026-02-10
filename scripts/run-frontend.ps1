@@ -11,7 +11,7 @@ Set-Location $ProjectRoot
 Write-Host "Building and starting frontend with Docker..." -ForegroundColor Green
 Write-Host ""
 
-# Check if .env file exists, create it if not
+# Create .env if missing (backend URL; Docker run also passes -e VITE_API_URL)
 $envFile = Join-Path $FrontendDir ".env"
 if (-not (Test-Path $envFile)) {
     Write-Host "Creating .env file..." -ForegroundColor Yellow
@@ -30,9 +30,10 @@ Write-Host "Starting frontend dev server on http://localhost:5173" -ForegroundCo
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
+# Browser runs on your machine, so backend URL must be localhost:8000 (not host.docker.internal)
 docker run --rm -it `
     -p 5173:5173 `
     -v "${FrontendDir}:/app" `
     -v "/app/node_modules" `
-    -e VITE_API_URL=http://host.docker.internal:8000/api/v1 `
+    -e VITE_API_URL=http://localhost:8000/api/v1 `
     home-automation-frontend-dev

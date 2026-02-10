@@ -10,5 +10,12 @@ export default defineConfig({
       usePolling: true,
     },
     host: true,
+    // Proxy API to backend when frontend uses relative /api/v1 (no VITE_API_URL)
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })

@@ -17,7 +17,11 @@ export function AuthProvider({ children }) {
     }
     try {
       const { data } = await api.get('/auth/me');
-      setUser({ email: data.email });
+      setUser({
+        email: data.email,
+        is_admin: data.is_admin,
+        must_change_password: data.must_change_password ?? false,
+      });
     } catch {
       localStorage.removeItem(tokenKey);
       setUser(null);
@@ -44,14 +48,31 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem(tokenKey, data.access_token);
-    setUser({ email: data.user.email });
+    setUser({
+      email: data.user.email,
+      is_admin: data.user.is_admin,
+      must_change_password: data.user.must_change_password ?? false,
+    });
     return data;
   };
 
   const register = async (email, password) => {
     const { data } = await api.post('/auth/register', { email, password });
     localStorage.setItem(tokenKey, data.access_token);
-    setUser({ email: data.user.email });
+    setUser({
+      email: data.user.email,
+      is_admin: data.user.is_admin,
+      must_change_password: data.user.must_change_password ?? false,
+    });
+    return data;
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    const { data } = await api.post('/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    setUser((prev) => (prev ? { ...prev, must_change_password: false } : null));
     return data;
   };
 
@@ -60,7 +81,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = { user, loading, login, register, logout };
+  const value = { user, loading, login, register, logout, changePassword };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

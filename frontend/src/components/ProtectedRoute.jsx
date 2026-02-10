@@ -17,5 +17,9 @@ export function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (user.must_change_password) {
+    return <Navigate to="/change-password" state={{ from: location }} replace />;
+  }
+
   return children;
 }
