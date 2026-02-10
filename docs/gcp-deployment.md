@@ -37,7 +37,7 @@ To create the VM, open the firewall, copy the project, and start the app in one 
 .\scripts\deploy-gcp-vm.ps1
 ```
 
-The script creates a Compute Engine VM (if it doesn’t exist), installs Docker on it via a startup script, copies your project, and runs `docker compose -f docker-compose.prod.yml up -d`. At the end it prints the frontend and API URLs. Optional env vars: `GCP_PROJECT`, `GCP_ZONE`, `VM_NAME`.
+The script creates a Compute Engine VM (if it doesn’t exist), installs Docker on it via a startup script, copies your project, and runs `docker compose -f docker-compose.prod.yml up -d`. At the end it prints the frontend and API URLs. Optional env vars: `GCP_PROJECT`, `GCP_ZONE`, `VM_NAME`. For production, set `SECRET_KEY` (see [Environment variables](#environment-variables)) before running the script so auth uses a secure JWT secret.
 
 ---
 
@@ -184,6 +184,12 @@ Use the backend’s Cloud Run URL as `VITE_API_URL` when building the frontend i
 
 - Run **Mosquitto on a small Compute Engine VM** (same steps as Option A for Docker, but only the MQTT service), or  
 - Use a **managed MQTT** (e.g. EMQX Cloud, HiveMQ Cloud) and set `MQTT_BROKER` (and port/topic) in the backend’s env.
+
+---
+
+## Environment variables
+
+- **SECRET_KEY (auth):** Required in production for JWT signing. Set before running compose, e.g. `export SECRET_KEY=$(openssl rand -hex 32)`. Do not commit secrets. See [docs/auth-design.md](auth-design.md).
 
 ---
 

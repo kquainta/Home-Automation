@@ -4,6 +4,11 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Home Automation"
     API_V1_STR: str = "/api/v1"
     
+    # Auth (set SECRET_KEY in production)
+    SECRET_KEY: str = "dev-secret-change-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    
     # MQTT Settings
     MQTT_BROKER: str = "localhost"
     MQTT_PORT: int = 1883

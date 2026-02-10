@@ -4,3 +4,6 @@ pydantic
 pydantic-settings
 paho-mqtt
 python-dotenv
+python-jose[cryptography]
+passlib
+email-validator
