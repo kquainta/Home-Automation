@@ -14,6 +14,10 @@ This project is developed by a virtual team of AI agents. See [AGENTS.md](./AGEN
 - `docs/`: Documentation and architecture diagrams.
 - `scripts/`: Utility scripts for development and deployment.
 
+## Environment / secrets
+
+Do **not** commit real credentials. Copy [.env.example](.env.example) to `.env` in the project root and set values there. `.env` is in `.gitignore` and will not be pushed to the repository. Use `.env.example` as a template (no real secrets).
+
 ## Getting Started
 See [docs/setup-info.md](./docs/setup-info.md) for local development with Docker.
 

@@ -92,6 +92,54 @@ async def dev_clear_users_post():
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def _seed_dev_users() -> None:
+    """Create or overwrite seeded users from env (E2E_SEED_*, ADMIN_SEED_*). Only seeds when both email and password are set."""
+    if settings.E2E_SEED_EMAIL.strip() and settings.E2E_SEED_PASSWORD:
+        create_user(
+            settings.E2E_SEED_EMAIL.strip(),
+            settings.E2E_SEED_PASSWORD,
+            is_admin=True,
+            must_change_password=False,
+        )
+    if settings.ADMIN_SEED_EMAIL.strip() and settings.ADMIN_SEED_PASSWORD:
+        create_user(
+            settings.ADMIN_SEED_EMAIL.strip(),
+            settings.ADMIN_SEED_PASSWORD,
+            is_admin=True,
+            must_change_password=False,
+        )
+
+
+@router.post("/dev/seed-e2e-user", status_code=status.HTTP_204_NO_CONTENT)
+async def dev_seed_e2e_user_post():
+    """Ensure the known E2E and admin users exist. Call before login tests or use for manual admin access."""
+    _seed_dev_users()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/dev/seed-e2e-user", status_code=status.HTTP_200_OK)
+async def dev_seed_e2e_user_get():
+    """Same as POST: create seed users. Open in browser to force seed, then try logging in as admin."""
+    _seed_dev_users()
+    return Response(
+        content="<html><body><h1>Seed done</h1><p>E2E and admin users created. Try logging in as admin.</p></body></html>",
+        media_type="text/html",
+    )
+
+
+@router.get("/dev/seed-status")
+async def dev_seed_status():
+    """Debug: see if seed env is loaded and if admin user exists. Open in browser to verify setup."""
+    admin_email = (getattr(settings, "ADMIN_SEED_EMAIL", "") or "").strip()
+    admin_configured = bool(admin_email and getattr(settings, "ADMIN_SEED_PASSWORD", ""))
+    admin_exists = get_user_by_email(admin_email or "admin") is not None
+    return {
+        "admin_configured": admin_configured,
+        "admin_exists": admin_exists,
+        "admin_email_set": bool(admin_email),
+    }
+
+
 @router.post("/register", response_model=Token)
 async def register(data: UserCreate):
     """Self-service registration is only allowed when no admin user exists.

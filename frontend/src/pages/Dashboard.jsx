@@ -234,14 +234,16 @@ export function Dashboard() {
                 />
                 Grant admin access
               </label>
-              <button
-                type="submit"
-                disabled={creating}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full accent-gradient text-white font-semibold text-sm disabled:opacity-60"
-              >
-                <Plus className="w-4 h-4" aria-hidden />
-                {creating ? 'Creating user…' : 'Create user'}
-              </button>
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full accent-gradient text-white font-semibold text-sm disabled:opacity-60"
+                >
+                  <Plus className="w-4 h-4" aria-hidden />
+                  {creating ? 'Creating user…' : 'Create user'}
+                </button>
+              </div>
             </form>
 
             <div className="space-y-3">
