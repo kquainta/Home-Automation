@@ -3,6 +3,7 @@ uvicorn
 pydantic
 pydantic-settings
 paho-mqtt
+httpx
 python-dotenv
 python-jose[cryptography]
 passlib

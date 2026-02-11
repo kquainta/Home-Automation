@@ -7,16 +7,21 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/app
+      # Mount .env so the backend can read it (avoids env substitution issues)
+      - ./.env:/app/.env.mounted:ro
     ports:
       - "8000:8000"
     environment:
       - MQTT_BROKER=mqtt-broker
-      # Seed users: Compose reads project root .env and passes these into the container (no file mount)
+      - ENV_FILE_PATH=/app/.env.mounted
+      # Seed users: Compose reads project root .env and passes these into the container
       - E2E_SEED_EMAIL=${E2E_SEED_EMAIL:-}
       - E2E_SEED_PASSWORD=${E2E_SEED_PASSWORD:-}
       - ADMIN_SEED_EMAIL=${ADMIN_SEED_EMAIL:-}
       - ADMIN_SEED_PASSWORD=${ADMIN_SEED_PASSWORD:-}
       - E2E_SEED_USER=${E2E_SEED_USER:-}
+      # Do NOT pass HOME_ASSISTANT_* here: empty env vars would override the mounted .env file.
+      # Backend reads them from the mounted .env at /app/.env.mounted only.
     depends_on:
       - mqtt-broker
 

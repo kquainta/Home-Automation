@@ -1,15 +1,22 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 # Where to load .env: (1) ENV_FILE_PATH if set (Docker mount), (2) project root when running from repo
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _env_path = os.environ.get("ENV_FILE_PATH")
-if _env_path and Path(_env_path).exists():
-    _ENV_FILE = Path(_env_path)
+if _env_path:
+    _p = Path(_env_path)
+    _ENV_FILE = _p if _p.exists() else _PROJECT_ROOT / ".env"
 else:
     _ENV_FILE = _PROJECT_ROOT / ".env"
+
+# Explicitly load .env into os.environ so Settings and the rest of the app see the values.
+# override=False: existing env vars (e.g. from Docker) take precedence.
+if _ENV_FILE.exists():
+    load_dotenv(str(_ENV_FILE), override=False)
 
 
 class Settings(BaseSettings):
@@ -36,8 +43,19 @@ class Settings(BaseSettings):
     MQTT_PORT: int = 1883
     MQTT_TOPIC_PREFIX: str = "home/"
 
+    # Home Assistant (optional; leave empty to disable integration)
+    HOME_ASSISTANT_URL: str = ""
+    HOME_ASSISTANT_TOKEN: str = ""
+
     class Config:
         env_file = str(_ENV_FILE) if _ENV_FILE.exists() else None
         env_file_encoding = "utf-8"
+        # Env vars override .env file (e.g. Docker Compose environment)
+        extra = "ignore"
+
+
+def get_env_file_path() -> str:
+    """Return which .env path we try to load (for debugging; no secrets)."""
+    return str(_ENV_FILE)
 
 settings = Settings()
