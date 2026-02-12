@@ -173,9 +173,13 @@ desktop.ini
 
 # Project specific
 backend/venv/
+backend/energy.db
+backend/.env.mounted
 frontend/dist/
 frontend/.env
 local-ha-media/
+playwright-report/
+test-results/
 
 # GCP credentials (never commit)
 *-gcp-key.json

@@ -20,8 +20,19 @@ import {
   CloudSnow,
   CloudFog,
   CloudLightning,
+  MapPin,
 } from 'lucide-react';
 import { PowerFlowDiagram } from '../components/PowerFlowDiagram';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -51,6 +62,8 @@ export function Dashboard() {
   const [projectedMonthlyCost, setProjectedMonthlyCost] = useState(null);
   const [monthlyUsageToDate, setMonthlyUsageToDate] = useState(null);
   const [projectedMonthlyUsage, setProjectedMonthlyUsage] = useState(null);
+  const [energyHistory, setEnergyHistory] = useState([]);
+  const [energyHistoryLoading, setEnergyHistoryLoading] = useState(false);
 
   // Home Assistant connection state
   const [haConfigured, setHaConfigured] = useState(null);
@@ -228,6 +241,51 @@ export function Dashboard() {
       }
     };
   }, []);
+
+  const fetchEnergyHistory = async () => {
+    try {
+      setEnergyHistoryLoading(true);
+      // Calculate date range based on selected period
+      const today = new Date();
+      let fromDate = null;
+      
+      if (selectedPeriod === 'day') {
+        // Last 7 days
+        fromDate = new Date(today);
+        fromDate.setDate(today.getDate() - 7);
+      } else if (selectedPeriod === 'week') {
+        // Last 4 weeks
+        fromDate = new Date(today);
+        fromDate.setDate(today.getDate() - 28);
+      } else if (selectedPeriod === 'month') {
+        // Last 3 months
+        fromDate = new Date(today);
+        fromDate.setMonth(today.getMonth() - 3);
+      } else if (selectedPeriod === 'year') {
+        // Last year
+        fromDate = new Date(today);
+        fromDate.setFullYear(today.getFullYear() - 1);
+      }
+
+      const params = {};
+      if (fromDate) {
+        params.from_date = fromDate.toISOString().split('T')[0];
+      }
+      params.to_date = today.toISOString().split('T')[0];
+
+      const { data } = await api.get('/homeassistant/energy-history', { params });
+      setEnergyHistory(data?.data || []);
+    } catch (err) {
+      console.error('Failed to fetch energy history:', err);
+      setEnergyHistory([]);
+    } finally {
+      setEnergyHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEnergyHistory();
+  }, [selectedPeriod]);
 
   // Calculate moon phase (simplified calculation)
   const calculateMoonPhase = () => {
@@ -473,12 +531,18 @@ export function Dashboard() {
                           </>
                         );
                       })() : null}
-                      {new Date(houseImageMetadata.modified_datetime).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {(() => {
+                        // Parse the ISO datetime string (backend sends UTC with 'Z' suffix)
+                        // JavaScript automatically converts UTC to user's local timezone
+                        const modifiedDate = new Date(houseImageMetadata.modified_datetime);
+                        // Display in user's local timezone
+                        return modifiedDate.toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      })()}
                     </div>
                   )}
                 </div>
@@ -493,6 +557,66 @@ export function Dashboard() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Map Card - OpenStreetMap embed centered on house */}
+          <div className="glass p-6 rounded-2xl border-l-4 border-blue-500/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Location</h3>
+              <MapPin className="w-5 h-5 text-blue-400" aria-hidden />
+            </div>
+            <div className="space-y-2">
+              {/* bbox = min_lon, min_lat, max_lon, max_lat - centered on 38.41729588, -121.44286712 */}
+              <div className="rounded-lg overflow-hidden border border-white/10 aspect-[4/3] max-h-64">
+                <iframe
+                  title="Map showing 5058 Willow Vale Way, Elk Grove, CA 95758"
+                  src="https://www.openstreetmap.org/export/embed.html?bbox=-121.4462%2C38.4148%2C-121.4395%2C38.4198&layer=mapnik&marker=38.41729588%2C-121.44286712"
+                  className="w-full h-full min-h-[240px] border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+              <div className="text-xs text-slate-400 text-center space-y-1">
+                <div className="text-slate-300 font-medium">5058 Willow Vale Way</div>
+                <div className="text-slate-500">Elk Grove, CA 95758</div>
+                <a
+                  href="https://www.google.com/maps/search/5058+Willow+Vale+Way,+Elk+Grove,+CA+95758"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 text-xs underline"
+                >
+                  Open in Google Maps
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Weather Radar Card - Windy.com embed centered on Elk Grove */}
+          <div className="glass p-6 rounded-2xl border-l-4 border-cyan-500/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Weather Radar</h3>
+              <CloudRain className="w-5 h-5 text-cyan-400" aria-hidden />
+            </div>
+            <div className="space-y-2">
+              <div className="rounded-lg overflow-hidden border border-white/10 aspect-[4/3] max-h-64">
+                <iframe
+                  title="Weather radar for Elk Grove, CA area"
+                  src="https://embed.windy.com/embed.html?lat=38.4173&lon=-121.4429&zoom=9&level=surface&overlay=radar&product=radar&menu=&message=&marker=&calendar=&type=map&location=coordinates&detail=&detailLat=38.4173&detailLon=-121.4429&metricWind=default&metricTemp=default&metricRain=default"
+                  className="w-full h-full min-h-[240px] border-0"
+                  loading="lazy"
+                />
+              </div>
+              <div className="text-xs text-slate-400 text-center">
+                <a
+                  href="https://www.windy.com/?38.417,-121.443,9,radar"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  Open full radar on Windy.com
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -609,31 +733,133 @@ export function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Graph cards - stacked vertically */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Consumption Graph Placeholder */}
+            {/* Consumption Graph */}
             <div className="glass p-6 rounded-2xl border border-purple-500/30">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">
                 Consumption Over Time
               </h3>
-              <div className="h-48 flex items-center justify-center">
-                <div className="text-center text-slate-500 text-sm">
-                  Chart will display consumption data for {selectedPeriod}
-                  <br />
-                  <span className="text-xs text-slate-600">(To be implemented with charting library)</span>
-                </div>
+              <div className="h-48">
+                {energyHistoryLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+                  </div>
+                ) : energyHistory.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center text-slate-500 text-sm">
+                      No historical data available
+                      <br />
+                      <span className="text-xs text-slate-600">Data will appear after daily snapshots are recorded</span>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={energyHistory}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#94a3b8"
+                        style={{ fontSize: '11px' }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                      />
+                      <YAxis
+                        stroke="#94a3b8"
+                        style={{ fontSize: '11px' }}
+                        label={{ value: 'kWh', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '11px' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          color: '#e2e8f0',
+                        }}
+                        labelFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        }}
+                        formatter={(value) => {
+                          return value != null ? [`${Number(value).toFixed(1)} kWh`, 'Usage'] : ['N/A', 'Usage'];
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="usage_kwh"
+                        stroke="#a855f7"
+                        strokeWidth={2}
+                        dot={{ fill: '#a855f7', r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
-            {/* Electricity Cost Over Time Graph Placeholder */}
+            {/* Electricity Cost Over Time Graph */}
             <div className="glass p-6 rounded-2xl border border-purple-500/30">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">
                 Electricity Cost Over Time
               </h3>
-              <div className="h-48 flex items-center justify-center">
-                <div className="text-center text-slate-500 text-sm">
-                  Chart will display electricity cost data for {selectedPeriod}
-                  <br />
-                  <span className="text-xs text-slate-600">(To be implemented with charting library)</span>
-                </div>
+              <div className="h-48">
+                {energyHistoryLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+                  </div>
+                ) : energyHistory.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center text-slate-500 text-sm">
+                      No historical data available
+                      <br />
+                      <span className="text-xs text-slate-600">Data will appear after daily snapshots are recorded</span>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={energyHistory}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#94a3b8"
+                        style={{ fontSize: '11px' }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                      />
+                      <YAxis
+                        stroke="#94a3b8"
+                        style={{ fontSize: '11px' }}
+                        label={{ value: '$', angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: '11px' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          color: '#e2e8f0',
+                        }}
+                        labelFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        }}
+                        formatter={(value) => {
+                          return value != null ? [`$${Number(value).toFixed(2)}`, 'Cost'] : ['N/A', 'Cost'];
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="cost_usd"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={{ fill: '#10b981', r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </div>

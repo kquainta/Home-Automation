@@ -93,7 +93,7 @@ async def dev_clear_users_post():
 
 
 def _seed_dev_users() -> None:
-    """Create or overwrite seeded users from env (E2E_SEED_*, ADMIN_SEED_*). Only seeds when both email and password are set."""
+    """Create or overwrite seeded users from env (E2E_SEED_*, ADMIN_SEED_*, USER1_SEED_*, USER2_SEED_*, USER3_SEED_*). Only seeds when both email and password are set."""
     if settings.E2E_SEED_EMAIL.strip() and settings.E2E_SEED_PASSWORD:
         create_user(
             settings.E2E_SEED_EMAIL.strip(),
@@ -106,6 +106,27 @@ def _seed_dev_users() -> None:
             settings.ADMIN_SEED_EMAIL.strip(),
             settings.ADMIN_SEED_PASSWORD,
             is_admin=True,
+            must_change_password=False,
+        )
+    if settings.USER1_SEED_EMAIL.strip() and settings.USER1_SEED_PASSWORD:
+        create_user(
+            settings.USER1_SEED_EMAIL.strip(),
+            settings.USER1_SEED_PASSWORD,
+            is_admin=False,
+            must_change_password=False,
+        )
+    if settings.USER2_SEED_EMAIL.strip() and settings.USER2_SEED_PASSWORD:
+        create_user(
+            settings.USER2_SEED_EMAIL.strip(),
+            settings.USER2_SEED_PASSWORD,
+            is_admin=False,
+            must_change_password=False,
+        )
+    if settings.USER3_SEED_EMAIL.strip() and settings.USER3_SEED_PASSWORD:
+        create_user(
+            settings.USER3_SEED_EMAIL.strip(),
+            settings.USER3_SEED_PASSWORD,
+            is_admin=False,
             must_change_password=False,
         )
 

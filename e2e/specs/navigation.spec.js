@@ -8,7 +8,7 @@ test.describe('Navigation (US-7)', () => {
     await page.goto('/');
     await page.getByRole('link', { name: /login/i }).click();
     await expect(page).toHaveURL(/\/login/);
-    await page.getByRole('link', { name: /q-core/i }).first().click();
+    await page.getByRole('link', { name: /q-central/i }).first().click();
     await expect(page).toHaveURL(/\/(\?.*)?$/);
     await page.getByRole('link', { name: /dashboard/i }).first().click();
     await expect(page).toHaveURL(/\/login/);

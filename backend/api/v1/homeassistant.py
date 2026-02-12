@@ -12,6 +12,8 @@ import logging
 from api.v1.auth import get_current_user_email
 from core.config import settings, get_env_file_path
 from services import homeassistant as ha
+from services import energy_history
+from datetime import date, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -263,10 +265,14 @@ async def get_latest_house_image_metadata(_email: str = Depends(get_current_user
         except:
             pass
         
+        # Convert timestamp to UTC datetime with timezone info
+        from datetime import timezone
+        utc_dt = datetime.fromtimestamp(latest_mtime, tz=timezone.utc)
+        
         return {
             "filename": filename,
             "modified_timestamp": latest_mtime,
-            "modified_datetime": datetime.fromtimestamp(latest_mtime).isoformat(),
+            "modified_datetime": utc_dt.isoformat(),  # Includes 'Z' suffix for UTC
             "date_from_filename": date_from_filename.isoformat() if date_from_filename else None,
         }
     except HTTPException:
@@ -344,4 +350,56 @@ async def get_latest_house_image(_email: str = Depends(get_current_user_email)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to retrieve house image"
+        ) from e
+
+
+@router.get("/energy-history")
+async def get_energy_history(
+    from_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    to_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
+    _email: str = Depends(get_current_user_email),
+):
+    """
+    Get historical energy usage and cost data.
+    Returns list of daily snapshots with date, usage_kwh, and cost_usd.
+    """
+    try:
+        from_dt = date.fromisoformat(from_date) if from_date else None
+        to_dt = date.fromisoformat(to_date) if to_date else None
+        
+        history = energy_history.get_history(from_date=from_dt, to_date=to_dt)
+        return {"data": history}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid date format. Use YYYY-MM-DD. {str(e)}"
+        )
+    except Exception as e:
+        logger.exception("Failed to retrieve energy history")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve energy history"
+        ) from e
+
+
+@router.post("/energy-history/record")
+async def record_energy_snapshot(_email: str = Depends(get_current_user_email)):
+    """
+    Manually trigger recording of today's energy snapshot.
+    Normally this runs automatically via scheduled job.
+    """
+    try:
+        success = await energy_history.record_today_snapshot()
+        if success:
+            return {"message": "Energy snapshot recorded successfully"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to record snapshot. Check Home Assistant configuration and entity availability."
+            )
+    except Exception as e:
+        logger.exception("Failed to record energy snapshot")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to record energy snapshot"
         ) from e

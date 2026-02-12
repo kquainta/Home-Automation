@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     E2E_SEED_PASSWORD: str = ""
     ADMIN_SEED_EMAIL: str = ""
     ADMIN_SEED_PASSWORD: str = ""
+    USER1_SEED_EMAIL: str = ""
+    USER1_SEED_PASSWORD: str = ""
+    USER2_SEED_EMAIL: str = ""
+    USER2_SEED_PASSWORD: str = ""
+    USER3_SEED_EMAIL: str = ""
+    USER3_SEED_PASSWORD: str = ""
 
     # MQTT Settings
     MQTT_BROKER: str = "localhost"

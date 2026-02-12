@@ -21,19 +21,11 @@ export function Layout() {
     <div className="min-h-screen bg-[#0f172a] text-[#f8fafc] font-sans antialiased">
       <nav className="flex flex-wrap justify-between items-center gap-4 max-w-7xl mx-auto px-6 py-4">
         <Link to="/" className="text-2xl font-bold tracking-tighter">
-          Q-<span className="text-sky-400">CORE</span>
+          Q-<span className="text-sky-400">CENTRAL</span>
         </Link>
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <span className="text-sm text-slate-400 hidden sm:inline">
-                {user.email}
-                {user.is_admin && (
-                  <span className="ml-2 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
-                    Admin
-                  </span>
-                )}
-              </span>
               <Link
                 to="/dashboard"
                 className="text-sm font-medium text-slate-400 hover:text-sky-400 transition-colors"
@@ -54,14 +46,22 @@ export function Layout() {
                   Users
                 </Link>
               )}
-              <button
-                type="button"
-                onClick={logout}
-                className="px-4 py-2 rounded-full border border-white/10 text-slate-300 hover:bg-white/5 text-sm font-medium flex items-center gap-2 transition-colors"
-              >
-                <LogOut className="w-4 h-4" aria-hidden />
-                Logout
-              </button>
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-sm font-medium text-emerald-300">
+                    {user.email}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="ml-1 p-1 rounded hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 transition-colors"
+                    title="Logout"
+                    aria-label="Logout"
+                  >
+                    <LogOut className="w-4 h-4" aria-hidden />
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <>
