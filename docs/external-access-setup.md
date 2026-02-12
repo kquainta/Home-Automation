@@ -1,19 +1,18 @@
 # External Access Setup Guide
 
-This guide helps you configure your Q-CENTRAL application to be accessible from external devices on your network (or the internet).
+This guide helps you configure Q-CENTRAL to be accessible from other devices on your network or from the internet when **hosting locally**.
 
 ## Current Status
 
 ✅ **Working:**
 - Backend listens on `0.0.0.0:8000` (all network interfaces)
 - Frontend listens on `0.0.0.0:5173` (all network interfaces)
-- Docker Desktop firewall rules are enabled
-- CORS is configured to allow all origins
+- CORS allows all origins
+- **Frontend uses relative API URLs** (`/api/v1`): same origin as the page, so it works for both localhost and external domains (e.g. `quaintance.tplinkdns.com`) without changing config. The Vite dev server proxies `/api` to the backend.
 
-❌ **Potential Issues:**
-- Windows Firewall may be blocking ports 8000 and 5173
-- Frontend API URL is hardcoded to `localhost` (won't work for external users)
-- Router port forwarding needed for internet access
+❌ **Potential issues:**
+- Windows Firewall may block ports 8000 and 5173 (add rules if needed)
+- Router port forwarding required for internet access
 
 ## Step 1: Configure Windows Firewall
 
@@ -40,41 +39,12 @@ New-NetFirewallRule -DisplayName "Q-CENTRAL Frontend" -Direction Inbound -LocalP
 7. Name it "Q-CENTRAL Backend" → **Finish**
 8. Repeat for port **5173** (name it "Q-CENTRAL Frontend")
 
-## Step 2: Fix Frontend API URL for External Access
+## Step 2: Frontend API URL (optional)
 
-The frontend is currently configured with `VITE_API_URL=http://localhost:8000/api/v1`, which only works locally.
+The frontend uses **relative URLs** for the API (`/api/v1`). The browser sends requests to the same host and port as the page (e.g. `http://your-domain:5173/api/v1/...`). The Vite dev server proxies `/api` to the backend, so no `VITE_API_URL` is needed for external access when using the dev server.
 
-### For Local Network Access (192.168.x.x)
-
-Update `docker-compose.yml` to use your local IP address:
-
-```yaml
-frontend:
-  environment:
-    - VITE_API_URL=http://192.168.1.98:8000/api/v1  # Replace with your actual IP
-```
-
-Then rebuild and restart:
-```bash
-docker-compose down frontend
-docker-compose up -d --build frontend
-```
-
-### For Internet Access (with domain/IP)
-
-If you have a domain or public IP, use that instead:
-```yaml
-frontend:
-  environment:
-    - VITE_API_URL=http://your-domain.com:8000/api/v1
-    # OR
-    - VITE_API_URL=http://YOUR_PUBLIC_IP:8000/api/v1
-```
-
-**Note:** For production, consider:
-- Using HTTPS (port 443) with a reverse proxy (nginx)
-- Using a domain name instead of IP addresses
-- Setting up proper SSL certificates
+- **If you use a custom domain:** Add it to `allowedHosts` in `frontend/vite.config.js` (e.g. `quaintance.tplinkdns.com`, `home.quaintance.net`).
+- **If you ever need a fixed API URL** (e.g. production build with separate API host): set `VITE_API_URL` in `docker-compose.yml` and rebuild the frontend.
 
 ## Step 3: Router Port Forwarding (For Internet Access)
 
@@ -143,13 +113,9 @@ If you want to access from outside your local network:
 
 If external users can see the frontend but get API errors:
 
-1. Check browser console for CORS errors
-2. Verify `VITE_API_URL` in `docker-compose.yml` uses the correct IP/domain
-3. Ensure backend CORS allows the frontend origin
-4. Rebuild frontend after changing `VITE_API_URL`:
-   ```bash
-   docker-compose up -d --build frontend
-   ```
+1. Check browser console for CORS or network errors
+2. Ensure the frontend is loaded from the same host you expect (relative `/api/v1` works when the page and API are same origin or proxied)
+3. If you set `VITE_API_URL`, rebuild frontend after changing it: `docker-compose up -d --build frontend`
 
 ## Production Recommendations
 
@@ -163,4 +129,4 @@ For production deployment, consider:
 6. **Use a domain name** instead of IP addresses
 7. **Set up monitoring** and logging
 
-See `docs/gcp-deployment.md` for production deployment examples.
+For local hosting, the setup above is sufficient. GCP deployment is optional; see [gcp-deployment.md](gcp-deployment.md) only if you choose to deploy to the cloud.

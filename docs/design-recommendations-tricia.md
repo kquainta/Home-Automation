@@ -1,5 +1,6 @@
 # Design Discussion: Mike + Tricia
 
+**Status:** Implemented in the current Dashboard and Layout.  
 **Context:** Tricia’s recommendations for a clean, tiled design aligned with the reference. Mike reviewed and agreed on the following.
 
 ---

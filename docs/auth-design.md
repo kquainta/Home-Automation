@@ -10,7 +10,7 @@
 - **Strategy:** JWT (access token) in `Authorization: Bearer <token>`.
 - **Backend:** FastAPI auth routes under `/api/v1/auth` (register, login, me). Token created with a shared secret; no session store.
 - **Frontend:** React auth context; token stored in `localStorage`; sent on API requests. Public landing page; login/register pages; protected dashboard route.
-- **User storage:** In-memory store for now (no DB). Baggs can add SQLite/DB later without changing the API contract.
+- **User storage:** File-based store (`api/v1/auth_store.py`). Seed users (E2E, Admin, USER1, USER2, USER3) can be created from `.env` on startup; see `core/config.py` and `_seed_dev_users()` in `auth.py`. First-admin registration flow when no admin exists (see `GET /auth/registration-allowed`).
 
 ---
 

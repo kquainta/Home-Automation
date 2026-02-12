@@ -1,5 +1,6 @@
 # Design Brief: Tiled Cards + Tile Colors (for Mike)
 
+**Status:** Implemented in the current Dashboard (glass cards, colored left borders, tiled layout).  
 **From:** Tricia (UI/UX Designer)  
 **To:** Mike (Frontend Developer)  
 **Goal:** Each section is its own card; use one complementing color per tile so the layout reads as a clear, attractive tiled dashboard.

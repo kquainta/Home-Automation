@@ -1,7 +1,8 @@
 # QA User Stories & Test Automation
 
 **Owner:** Tony (QA Engineer)  
-**Purpose:** User stories and acceptance criteria that drive manual and automated testing of the Home Automation site.
+**Purpose:** User stories and acceptance criteria that drive manual and automated testing of the Home Automation site.  
+**Current app name:** Q-CENTRAL. **Hosting:** Local only (Docker Compose); see [current-state.md](current-state.md).
 
 ---
 

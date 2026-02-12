@@ -4,6 +4,20 @@
 
 ---
 
+## Implementation status (current)
+
+**Implemented.** The following are in place:
+
+- **Database:** `backend/core/db.py` — SQLite, table `energy_daily` (date, usage_kwh, cost_usd, created_at).
+- **Service:** `backend/services/energy_history.py` — `record_today_snapshot()` (reads HA SMUD entities), `get_history(from_date, to_date)`.
+- **API:** Under `backend/api/v1/homeassistant.py`: `GET /api/v1/homeassistant/energy-history?from_date=&to_date=`, `POST /api/v1/homeassistant/energy-history/record`.
+- **Scheduler:** APScheduler in `main.py` runs the daily snapshot at 23:59.
+- **Frontend:** Dashboard Usage Statistics section uses Recharts; two line charts (consumption over time, electricity cost over time) fetch from `energy-history`.
+
+The sections below describe the original recommendation; the implementation follows it.
+
+---
+
 ## 1. Recommended approach: SQLite + daily snapshot
 
 - **Store** daily snapshots in a **SQLite** database (single file, no extra service).

@@ -1,5 +1,9 @@
 # Deploying Home Automation on Google Cloud Platform (GCP)
 
+**Note:** This project is intended for **local hosting only**. Use this document only if you choose to deploy to Google Cloud. For normal use, run the app with Docker Compose locally; see [setup-info.md](setup-info.md) and [current-state.md](current-state.md).
+
+---
+
 This guide covers two ways to run the app on GCP: a single VM (easiest) and Cloud Run (serverless).
 
 ---

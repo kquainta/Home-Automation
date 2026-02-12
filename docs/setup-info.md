@@ -1,68 +1,113 @@
-# Initial Project Setup Information
+# Local Setup — Q-CENTRAL
 
-This document outlines the initial configuration and setup of the Home Automation project as established by the virtual development team.
+This document describes how to run Q-CENTRAL **locally** with Docker. The project is intended for local hosting only (no GCP).
+
+---
 
 ## Project Vision
-A modular, scalable home automation system built with modern technologies to manage IoT devices and automation routines.
+
+A local home automation dashboard that pulls data from Home Assistant and MQTT: weather, sun/moon, power flow, usage and cost over time, house image, location map, and weather radar.
+
+---
 
 ## Technology Stack
 
 ### Backend
-- **Framework**: FastAPI (Python 3.11+)
-- **Validation**: Pydantic v2
-- **Communication**: MQTT (paho-mqtt)
-- **API Documentation**: Swagger/OpenAPI (built-in)
+- **Framework:** FastAPI (Python 3.11+)
+- **Validation:** Pydantic v2
+- **HTTP client:** httpx (for Home Assistant)
+- **Scheduler:** APScheduler (daily energy snapshot)
+- **Storage:** SQLite (energy history; file `backend/energy.db`)
+- **Auth:** JWT, file-based user store
+- **API docs:** Swagger/OpenAPI at `/docs`
 
 ### Frontend
-- **Framework**: React 18
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
+- **Framework:** React 18
+- **Build:** Vite
+- **Styling:** Tailwind CSS
+- **Icons:** Lucide React
+- **Charts:** Recharts
 
 ### Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **MQTT Broker**: Eclipse Mosquitto
+- **Containers:** Docker & Docker Compose
+- **MQTT:** Eclipse Mosquitto
 
-## Project Structure
+---
+
+## Project Structure (current)
+
 ```text
 /
-├── .cursor/rules/      # Role-specific AI instructions
-├── backend/            # FastAPI source code
-│   ├── api/            # API route definitions
-│   ├── core/           # Configuration and core logic
-│   ├── services/       # External services (MQTT, etc.)
-│   └── Dockerfile      # Backend container definition
-├── frontend/           # React source code
-│   ├── src/            # Components, hooks, and pages
-│   ├── index.html      # Entry point
-│   └── Dockerfile      # Frontend container definition
-├── docs/               # Documentation
-├── scripts/            # Utility scripts
-├── AGENTS.md           # Virtual team roles and responsibilities
-├── docker-compose.yml  # Local development orchestration
-└── README.md           # Project overview
+├── backend/
+│   ├── api/v1/           # auth, homeassistant (dashboard, house image, energy-history)
+│   ├── core/             # config.py, db.py (SQLite)
+│   ├── services/          # homeassistant, energy_history, mqtt
+│   ├── main.py            # app startup, db init, daily snapshot job
+│   └── energy.db          # SQLite DB (gitignored)
+├── frontend/
+│   ├── public/            # favicon.png
+│   ├── src/
+│   │   ├── components/    # Layout, PowerFlowDiagram, ProtectedRoute
+│   │   ├── context/      # AuthContext
+│   │   └── pages/        # Home, Login, Register, Dashboard, Users, Home Assistant
+│   └── vite.config.js     # proxy to backend, allowedHosts
+├── docs/                  # All documentation (see current-state.md)
+├── scripts/               # sync-ha-media.ps1, run scripts
+├── AGENTS.md
+├── docker-compose.yml     # backend, frontend, mqtt-broker
+└── .env                   # Secrets (gitignored)
 ```
 
+---
+
 ## Virtual Team Roles
-- **Eugene (Tech Lead)**: Architecture and standards.
-- **Baggs (Backend Developer)**: API and IoT integration.
-- **Mike (Frontend Developer)**: UI/UX and dashboard.
-- **Thyya (DevOps Engineer)**: Deployment and CI/CD.
-- **Tony (QA Engineer)**: Testing and quality assurance.
+
+See [AGENTS.md](../AGENTS.md). Eugene (TL), Baggs (BE), Mike (FE), Tricia (Design), Thyya (Ops), Tony (QA).
+
+---
 
 ## Getting Started
 
-### Local Development with Docker
-1. Ensure Docker and Docker Compose are installed.
-2. Run the following command from the root directory:
-   ```bash
-   docker-compose up --build
-   ```
-3. Access the services:
-   - **Frontend**: http://localhost:5173
-   - **Backend API**: http://localhost:8000
-   - **API Docs**: http://localhost:8000/docs
-   - **MQTT Broker**: localhost:1883
+### 1. Prerequisites
 
-### Manual Setup (Optional)
-Refer to the `requirements.txt` in the `backend/` folder and `package.json` in the `frontend/` folder for manual dependency installation.
+- Docker and Docker Compose installed.
+- (Optional) Home Assistant running and a long-lived token for dashboard data.
+
+### 2. Environment
+
+- Copy `.env.example` to `.env` in the project root.
+- Set at least: auth seed users if desired, and optionally `HOME_ASSISTANT_URL` and `HOME_ASSISTANT_TOKEN` for HA features.
+
+### 3. Run with Docker
+
+From the project root:
+
+```bash
+docker-compose up --build
+```
+
+### 4. Access
+
+- **Frontend (Q-CENTRAL):** http://localhost:5173
+- **Backend API:** http://localhost:8000
+- **API docs:** http://localhost:8000/docs
+- **MQTT:** localhost:1883
+
+### 5. House image (optional)
+
+If you use the House View tile and your HA media is on a network share (e.g. `\\homeassistant\media`), sync images locally and mount them:
+
+- Create `local-ha-media/` and run `scripts/sync-ha-media.ps1` (see [task-scheduler-setup.md](task-scheduler-setup.md) to automate).
+- `docker-compose.yml` mounts `./local-ha-media` into the backend.
+
+---
+
+## External access (optional)
+
+To use the app from other devices on your network or from the internet, see [external-access-setup.md](external-access-setup.md) (Windows Firewall, optional VITE_API_URL, router port forwarding).
+
+---
+
+## More documentation
+
+See [current-state.md](current-state.md) for the full doc index and current feature list.

@@ -1,5 +1,9 @@
 # GCP Credentials Setup
 
+**Only needed if you deploy to GCP.** The project is intended for local hosting; see [current-state.md](current-state.md). Use this doc when following [gcp-deployment.md](gcp-deployment.md).
+
+---
+
 You need credentials so the deploy script (or `gcloud`) can create VMs and manage firewall rules. Two options:
 
 ---

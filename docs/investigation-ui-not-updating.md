@@ -1,5 +1,6 @@
 # Investigation: UI Changes Not Visible After Deployment
 
+**Status:** Historical. Issue was addressed (build cache, deploy process). Project is now **local hosting only**; see [current-state.md](current-state.md).  
 **Led by:** Eugene (Tech Lead)  
 **Reported:** UI changes and deployments are not reflected when loading the site, even from different browsers (ruling out simple browser cache).
 

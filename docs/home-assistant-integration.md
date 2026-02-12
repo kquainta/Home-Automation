@@ -1,6 +1,21 @@
 # Home Assistant Integration — Architecture (Eugene, Tech Lead)
 
-This document describes how to integrate this app with Home Assistant to **pull and display** data from it. It keeps the backend as the single point of contact with Home Assistant and the frontend as a consumer of our own API.
+This document describes how this app integrates with Home Assistant to **pull and display** data. The backend is the single point of contact with HA; the frontend only talks to our API.
+
+---
+
+## Current state (implemented)
+
+- **Config:** `HOME_ASSISTANT_URL`, `HOME_ASSISTANT_TOKEN` in `.env` (mounted as `/app/.env.mounted` in backend). Optional `HA_MEDIA_PATH` for house images.
+- **Service:** `backend/services/homeassistant.py` — `get_states()`, `get_states_for_dashboard()`, `get_entity(entity_id)`.
+- **API router:** `backend/api/v1/homeassistant.py`. Endpoints (all auth-protected except status/debug):
+  - `GET /homeassistant/status` — configured or not (no auth)
+  - `GET /homeassistant/dashboard` — entities for dashboard (weather, sun, sensor)
+  - `GET /homeassistant/entities`, `GET /homeassistant/entities/{entity_id}`
+  - `GET /homeassistant/house-image`, `GET /homeassistant/house-image-metadata`, `GET /homeassistant/house-image-debug`
+  - `GET /homeassistant/energy-history?from_date=&to_date=`, `POST /homeassistant/energy-history/record`
+- **Dashboard:** Weather, sun, moon, power flow (solar, battery, grid, consumption), SMUD usage/cost cards, house view image, location map, weather radar. Usage Statistics includes consumption and cost over time (from energy history).
+- **House image:** Served from backend; image files synced from HA media share to `local-ha-media/` (see [task-scheduler-setup.md](task-scheduler-setup.md)).
 
 ---
 

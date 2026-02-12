@@ -1,6 +1,6 @@
 # Windows Task Scheduler Setup for HA Media Sync
 
-This guide shows how to set up Windows Task Scheduler to automatically sync house images from the Home Assistant network share to the local folder.
+This guide shows how to set up Windows Task Scheduler to automatically sync house images from the Home Assistant network share to the local folder. **Used for local hosting** so the backend container can serve the latest house image.
 
 ## Prerequisites
 
