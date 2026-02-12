@@ -53,6 +53,24 @@ async def get_states(domain: str | None = None) -> list[dict[str, Any]]:
     return states
 
 
+# Domains the dashboard needs (weather, sun, sensor for energy/power/battery/solar/grid)
+_DASHBOARD_DOMAINS = ("weather", "sun", "sensor")
+
+
+async def get_states_for_dashboard() -> list[dict[str, Any]]:
+    """
+    Fetch entity states relevant to the dashboard (weather, sun, sensor).
+    Returns list of HA state objects; empty list if not configured.
+    """
+    if not _is_configured():
+        return []
+    states = await get_states(domain=None)
+    return [
+        s for s in states
+        if (s.get("entity_id") or "").split(".", 1)[0] in _DASHBOARD_DOMAINS
+    ]
+
+
 async def get_entity(entity_id: str) -> dict[str, Any] | None:
     """
     Fetch a single entity state. Returns None if HA is not configured or entity not found.

@@ -8,6 +8,8 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ChangePassword } from './pages/ChangePassword';
 import { Dashboard } from './pages/Dashboard';
+import { LegacyDashboard } from './pages/LegacyDashboard';
+import { Users } from './pages/Users';
 
 function App() {
   return (
@@ -24,6 +26,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/homeassistant"
+              element={
+                <ProtectedRoute>
+                  <LegacyDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute>
+                  <Users />
                 </ProtectedRoute>
               }
             />

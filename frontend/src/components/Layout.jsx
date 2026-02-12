@@ -40,6 +40,20 @@ export function Layout() {
               >
                 Dashboard
               </Link>
+              <Link
+                to="/homeassistant"
+                className="text-sm font-medium text-slate-400 hover:text-sky-400 transition-colors"
+              >
+                Home Assistant
+              </Link>
+              {user.is_admin && (
+                <Link
+                  to="/users"
+                  className="text-sm font-medium text-slate-400 hover:text-sky-400 transition-colors"
+                >
+                  Users
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={logout}

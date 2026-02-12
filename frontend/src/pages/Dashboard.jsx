@@ -1,421 +1,744 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import {
-  Activity,
+  Cloud,
+  Sun,
+  Moon,
   Zap,
-  ShieldCheck,
-  FileText,
-  RefreshCw,
-  Database,
-  BarChart3,
-  CheckCircle2,
-  Wifi,
-  Cpu,
-  Bell,
-  Users,
-  Plus,
-  Trash2,
-  Home,
+  Sun as SunIcon,
+  Battery,
+  TrendingUp,
+  TrendingDown,
   Loader2,
+  RefreshCw,
+  BarChart3,
+  DollarSign,
+  Activity,
+  Home,
+  CloudRain,
+  CloudSnow,
+  CloudFog,
+  CloudLightning,
 } from 'lucide-react';
-
-const RECENT_ACTIVITY = [
-  { id: 1, title: 'Node sync completed', time: '2 min ago', status: 'success', icon: CheckCircle2 },
-  { id: 2, title: 'Backup finished', time: '15 min ago', status: 'success', icon: Database },
-  { id: 3, title: 'Alert resolved', time: '1 hr ago', status: 'success', icon: ShieldCheck },
-  { id: 4, title: 'Network scan', time: '2 hrs ago', status: 'success', icon: Wifi },
-  { id: 5, title: 'Health check', time: '3 hrs ago', status: 'success', icon: Cpu },
-];
-
-const QUICK_ACTIONS = [
-  { label: 'View logs', icon: FileText, href: '#' },
-  { label: 'Restart node', icon: RefreshCw, href: '#' },
-  { label: 'Run backup', icon: Database, href: '#' },
-  { label: 'Analytics', icon: BarChart3, href: '#' },
-];
+import { PowerFlowDiagram } from '../components/PowerFlowDiagram';
 
 export function Dashboard() {
   const { user } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [userError, setUserError] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newIsAdmin, setNewIsAdmin] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  // Home Overview data
+  const [weatherData, setWeatherData] = useState(null);
+  const [weatherTemperatureSensor, setWeatherTemperatureSensor] = useState(null); // HA sensor.blink_whole_house_temperature
+  const [sunData, setSunData] = useState(null);
+  const [moonData, setMoonData] = useState(null);
+  const [houseImageUrl, setHouseImageUrl] = useState(null);
+  const [houseImageError, setHouseImageError] = useState(null);
+  const [houseImageMetadata, setHouseImageMetadata] = useState(null);
+  const houseImageUrlRef = useRef(null);
+  
+  // Energy data
+  const [powerConsumption, setPowerConsumption] = useState(null);
+  const [solarOutput, setSolarOutput] = useState(null);
+  const [batteryData, setBatteryData] = useState(null);
+  const [batteryPower, setBatteryPower] = useState(null); // Charge/discharge rate
+  const [gridData, setGridData] = useState(null);
+  
+  // Usage Statistics
+  const [selectedPeriod, setSelectedPeriod] = useState('day');
+  const [usageStats, setUsageStats] = useState(null);
+  const [electricCostCurrentMonth, setElectricCostCurrentMonth] = useState(null);
+  const [projectedMonthlyCost, setProjectedMonthlyCost] = useState(null);
+  const [monthlyUsageToDate, setMonthlyUsageToDate] = useState(null);
+  const [projectedMonthlyUsage, setProjectedMonthlyUsage] = useState(null);
 
-  // Home Assistant
-  const [haEntities, setHaEntities] = useState([]);
-  const [haLoading, setHaLoading] = useState(false);
-  const [haError, setHaError] = useState('');
-  const [haDomain, setHaDomain] = useState('');
+  // Home Assistant connection state
   const [haConfigured, setHaConfigured] = useState(null);
+  const [haError, setHaError] = useState(null);
 
-  const isAdmin = Boolean(user?.is_admin);
-
-  const fetchUsers = async () => {
-    if (!isAdmin) return;
-    setLoadingUsers(true);
-    setUserError('');
+  const fetchHomeAssistantEntities = async () => {
     try {
-      const { data } = await api.get('/auth/users');
-      setUsers(data);
+      const statusRes = await api.get('/homeassistant/status').catch(() => ({ data: { configured: false } }));
+      const configured = statusRes?.data?.configured === true;
+      setHaConfigured(configured);
+      setHaError(null);
+
+      if (!configured) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      const { data } = await api.get('/homeassistant/dashboard');
+      const entities = Array.isArray(data) ? data : [];
+
+      setHaError(null);
+
+      // Extract weather data (card layout, humidity, wind)
+      const weatherEntity = entities.find(e =>
+        e.entity_id?.includes('weather') ||
+        e.attributes?.device_class === 'temperature'
+      );
+      setWeatherData(weatherEntity ?? null);
+      // Current temperature from HA sensor.blink_whole_house_temperature
+      const blinkTemp = entities.find(e => e.entity_id === 'sensor.blink_whole_house_temperature') ?? null;
+      setWeatherTemperatureSensor(blinkTemp);
+
+      // Extract sun data
+      const sunEntity = entities.find(e => e.entity_id?.includes('sun'));
+      setSunData(sunEntity ?? null);
+
+      // Extract energy data
+      const powerEntity = entities.find(e =>
+        e.entity_id?.includes('power') ||
+        e.entity_id?.includes('consumption') ||
+        e.attributes?.unit_of_measurement === 'kW' ||
+        e.attributes?.unit_of_measurement === 'W'
+      );
+      setPowerConsumption(powerEntity ?? null);
+
+      // Solar: prefer Envoy 121544051333 Current power production (HA API), fallback to solar/pv entities
+      const ENVOY_SOLAR_FRIENDLY_NAME = 'Envoy 121544051333 Current power production';
+      const solarEntity = entities.find(e =>
+        e.attributes?.friendly_name === ENVOY_SOLAR_FRIENDLY_NAME
+      ) ?? entities.find(e =>
+        e.entity_id?.includes('solar') ||
+        e.entity_id?.includes('pv')
+      );
+      setSolarOutput(solarEntity ?? null);
+
+      const batteryEntity = entities.find(e =>
+        (e.entity_id?.includes('battery') || e.entity_id?.includes('powerwall')) &&
+        (e.attributes?.unit_of_measurement === '%' || e.attributes?.device_class === 'battery')
+      );
+      setBatteryData(batteryEntity ?? null);
+
+      const batteryPowerEntity = entities.find(e =>
+        (e.entity_id?.includes('battery') || e.entity_id?.includes('powerwall')) &&
+        (e.attributes?.unit_of_measurement === 'kW' || e.attributes?.unit_of_measurement === 'W') &&
+        (e.entity_id?.includes('power') || e.entity_id?.includes('charge') || e.entity_id?.includes('discharge'))
+      );
+      setBatteryPower(batteryPowerEntity ?? null);
+
+      const gridEntity = entities.find(e =>
+        e.entity_id?.includes('grid') ||
+        e.entity_id?.includes('import') ||
+        e.entity_id?.includes('export')
+      );
+      setGridData(gridEntity ?? null);
+
+      // SMUD electric billing entities (HA API)
+      const byFriendlyName = (name) => entities.find(e => e.attributes?.friendly_name === name) ?? null;
+      setElectricCostCurrentMonth(byFriendlyName('SMUD Electric Current bill electric cost to date'));
+      setProjectedMonthlyCost(byFriendlyName('SMUD Electric Current bill electric forecasted cost'));
+      setMonthlyUsageToDate(byFriendlyName('SMUD Electric Current bill electric usage to date'));
+      setProjectedMonthlyUsage(byFriendlyName('SMUD Electric Current bill electric forecasted usage'));
     } catch (err) {
-      setUserError(err.response?.data?.detail || 'Failed to load users');
+      console.error('Failed to fetch Home Assistant data:', err);
+      setHaError(err.response?.data?.detail || err.message || 'Unable to reach Home Assistant.');
     } finally {
-      setLoadingUsers(false);
+      setLoading(false);
+    }
+  };
+
+  const fetchHouseImage = async () => {
+    try {
+      setHouseImageError(null);
+      // Add timestamp query to bust cache and ensure hourly refresh
+      const timestamp = Math.floor(Date.now() / (1000 * 60 * 60)); // Changes every hour
+      
+      // Fetch both image and metadata in parallel
+      const [imageResponse, metadataResponse] = await Promise.all([
+        api.get('/homeassistant/house-image', {
+          params: { t: timestamp },
+          responseType: 'blob',
+        }),
+        api.get('/homeassistant/house-image-metadata', {
+          params: { t: timestamp },
+        }).catch(() => null), // Metadata is optional, don't fail if it errors
+      ]);
+      
+      // response.data is already a Blob when responseType is 'blob'
+      if (!(imageResponse.data instanceof Blob)) {
+        const errorMsg = 'Invalid response type - expected blob';
+        console.error(errorMsg, typeof imageResponse.data);
+        setHouseImageError(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Create object URL from blob
+      const imageUrl = URL.createObjectURL(imageResponse.data);
+      
+      // Revoke previous URL to prevent memory leaks
+      if (houseImageUrlRef.current && houseImageUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(houseImageUrlRef.current);
+      }
+      
+      houseImageUrlRef.current = imageUrl;
+      setHouseImageUrl(imageUrl);
+      
+      // Set metadata if available
+      if (metadataResponse?.data) {
+        setHouseImageMetadata(metadataResponse.data);
+      }
+      
+      setHouseImageError(null);
+    } catch (err) {
+      console.error('Failed to fetch house image:', err);
+      let errorMsg = 'Failed to load image';
+      if (err.response) {
+        console.error('Response status:', err.response.status);
+        if (err.response.status === 404) {
+          errorMsg = 'Image not found';
+        } else if (err.response.status === 500) {
+          errorMsg = 'Server error loading image';
+        } else {
+          errorMsg = `Error ${err.response.status}: ${err.response.data?.detail || 'Unknown error'}`;
+        }
+        console.error('Response data:', err.response.data);
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      setHouseImageError(errorMsg);
+      setHouseImageMetadata(null);
+      // Revoke URL if it exists
+      if (houseImageUrlRef.current && houseImageUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(houseImageUrlRef.current);
+      }
+      houseImageUrlRef.current = null;
+      setHouseImageUrl(null);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
-
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-    setCreating(true);
-    setUserError('');
-    try {
-      await api.post('/auth/users', {
-        email: newEmail,
-        password: newPassword,
-        is_admin: newIsAdmin,
-      });
-      setNewEmail('');
-      setNewPassword('');
-      setNewIsAdmin(false);
-      await fetchUsers();
-    } catch (err) {
-      setUserError(err.response?.data?.detail || 'Failed to create user');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleDeleteUser = async (email) => {
-    if (!isAdmin) return;
-    if (!window.confirm(`Delete user "${email}"? This cannot be undone.`)) return;
-    setUserError('');
-    try {
-      await api.delete(`/auth/users/${encodeURIComponent(email)}`);
-      setUsers((prev) => prev.filter((u) => u.email !== email));
-    } catch (err) {
-      setUserError(err.response?.data?.detail || 'Failed to delete user');
-    }
-  };
-
-  const fetchHaStatus = async () => {
-    try {
-      const { data } = await api.get('/homeassistant/status');
-      setHaConfigured(Boolean(data?.configured));
-    } catch {
-      setHaConfigured(false);
-    }
-  };
-
-  const fetchHaEntities = async () => {
-    setHaLoading(true);
-    setHaError('');
-    try {
-      await fetchHaStatus();
-      const params = haDomain ? { domain: haDomain } : {};
-      const { data } = await api.get('/homeassistant/entities', { params });
-      setHaEntities(Array.isArray(data) ? data : []);
-    } catch (err) {
-      const detail = err.response?.data?.detail || err.message || 'Failed to load Home Assistant entities';
-      setHaError(detail);
-      setHaEntities([]);
-    } finally {
-      setHaLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHaEntities();
-    const interval = setInterval(fetchHaEntities, 30000);
+    fetchHomeAssistantEntities();
+    const interval = setInterval(fetchHomeAssistantEntities, 10000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [haDomain]);
+  }, []);
+
+  useEffect(() => {
+    fetchHouseImage();
+    // Refresh hourly (3600000 ms = 1 hour)
+    const interval = setInterval(fetchHouseImage, 3600000);
+    return () => {
+      clearInterval(interval);
+      // Cleanup blob URL on unmount
+      if (houseImageUrlRef.current && houseImageUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(houseImageUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Calculate moon phase (simplified calculation)
+  const calculateMoonPhase = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    
+    // Simple moon phase calculation (approximate)
+    const daysSinceNewMoon = (year * 365.25 + month * 30.44 + day) % 29.53;
+    const phase = daysSinceNewMoon / 29.53;
+    
+    if (phase < 0.03) return { name: 'New Moon', icon: '🌑', illumination: 0 };
+    if (phase < 0.22) return { name: 'Waxing Crescent', icon: '🌒', illumination: phase * 100 };
+    if (phase < 0.28) return { name: 'First Quarter', icon: '🌓', illumination: 50 };
+    if (phase < 0.47) return { name: 'Waxing Gibbous', icon: '🌔', illumination: phase * 100 };
+    if (phase < 0.53) return { name: 'Full Moon', icon: '🌕', illumination: 100 };
+    if (phase < 0.72) return { name: 'Waning Gibbous', icon: '🌖', illumination: (1 - phase) * 100 };
+    if (phase < 0.78) return { name: 'Last Quarter', icon: '🌗', illumination: 50 };
+    return { name: 'Waning Crescent', icon: '🌘', illumination: (1 - phase) * 100 };
+  };
+
+  const moonPhase = calculateMoonPhase();
+
+  // Format time helper
+  const formatTime = (timeString) => {
+    if (!timeString) return '—';
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return timeString;
+    }
+  };
+
+  // Format number helper
+  const formatNumber = (value, decimals = 1) => {
+    if (value === null || value === undefined) return '—';
+    return Number(value).toFixed(decimals);
+  };
+
+  // Get weather condition icon based on condition string
+  const getWeatherIcon = (condition) => {
+    if (!condition) return Cloud;
+    const cond = condition.toLowerCase();
+    if (cond.includes('sun') || cond === 'clear' || cond === 'clear-day') return Sun;
+    if (cond.includes('rain') || cond.includes('drizzle')) return CloudRain;
+    if (cond.includes('snow') || cond.includes('sleet')) return CloudSnow;
+    if (cond.includes('fog') || cond.includes('mist') || cond.includes('haze')) return CloudFog;
+    if (cond.includes('thunder') || cond.includes('storm') || cond.includes('lightning')) return CloudLightning;
+    if (cond.includes('cloud') || cond.includes('overcast')) return Cloud;
+    return Cloud; // Default
+  };
+
+  // Get weather condition from data
+  const weatherCondition = weatherData?.attributes?.condition || weatherData?.state || null;
+  const WeatherIcon = getWeatherIcon(weatherCondition);
+
+  // Convert to kW helper (handles W to kW conversion)
+  const toKW = (value, unit) => {
+    if (value === null || value === undefined) return 0;
+    const num = Number(value);
+    if (unit === 'W' || unit === 'w') {
+      return num / 1000; // Convert W to kW
+    }
+    return num; // Already in kW
+  };
+
+  // Extract energy values for power flow diagram (with safe null checks)
+  const solarPowerKW = solarOutput?.state ? toKW(solarOutput.state, solarOutput.attributes?.unit_of_measurement) : 0;
+  const batteryLevel = batteryData?.state ? (Number(batteryData.state) || 0) : 0;
+  // Battery power: positive = charging, negative = discharging
+  const batteryPowerKW = batteryPower?.state ? toKW(batteryPower.state, batteryPower.attributes?.unit_of_measurement) : 0;
+  const gridPowerKW = gridData?.state ? toKW(gridData.state, gridData.attributes?.unit_of_measurement) : 0;
+  const homeConsumptionKW = powerConsumption?.state ? toKW(powerConsumption.state, powerConsumption.attributes?.unit_of_measurement) : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10 space-y-6">
+      {/* Welcome Section */}
       <section className="glass p-6 rounded-3xl border-l-4 border-emerald-500/60 flex flex-wrap items-center justify-between gap-4">
         <p className="text-slate-400">
           Welcome, <span className="text-sky-400 font-medium">{user?.email}</span>.
         </p>
-        {isAdmin && (
-          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
-            Admin controls enabled
-          </span>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-        <div className="glass p-8 rounded-3xl border-l-4 border-emerald-500/60">
-          <div className="h-2 w-12 bg-emerald-500 rounded-full mb-6" aria-hidden />
-          <h3 className="text-xl font-bold mb-2 text-slate-100">System Health</h3>
-          <p className="text-slate-400 text-sm">All nodes reporting 99.9% uptime across local clusters.</p>
-          <div className="mt-6 text-2xl font-mono text-emerald-400">ONLINE</div>
-        </div>
-        <div className="glass p-8 rounded-3xl border-l-4 border-purple-500/60">
-          <div className="h-2 w-12 bg-purple-500 rounded-full mb-6" aria-hidden />
-          <h3 className="text-xl font-bold mb-2 text-slate-100">Network Load</h3>
-          <p className="text-slate-400 text-sm">Multi-gigabit backbone traffic is currently optimized.</p>
-          <div className="mt-6 text-2xl font-mono text-slate-100">1.2 Gbps</div>
-        </div>
-        <div className="glass p-8 rounded-3xl border-l-4 border-sky-500/50">
-          <div className="h-2 w-12 bg-sky-400 rounded-full mb-6" aria-hidden />
-          <h3 className="text-xl font-bold mb-2 text-slate-100">IoT Integration</h3>
-          <p className="text-slate-400 text-sm">ESP32 sensors active. Data streaming to GCP via Pub/Sub.</p>
-          <div className="mt-6 text-2xl font-mono text-sky-400">ACTIVE</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <section className="glass p-8 rounded-3xl border-l-4 border-sky-500/40 lg:col-span-2">
-          <h2 className="text-sm font-medium text-slate-400 mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4" aria-hidden />
-            Recent activity
-          </h2>
-          <ul className="space-y-3" role="list">
-            {RECENT_ACTIVITY.map(({ id, title, time, status, icon: Icon }) => (
-              <li key={id}>
-                <div className="tile-card flex items-center gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-emerald-400" aria-hidden />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-100 truncate">{title}</p>
-                    <p className="text-sm text-slate-400">{time}</p>
-                  </div>
-                  <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="glass p-8 rounded-3xl border-l-4 border-amber-500/50">
-          <h2 className="text-sm font-medium text-slate-400 mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4" aria-hidden />
-            Quick actions
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
-              <a key={label} href={href} className="tile-action group">
-                <Icon className="w-6 h-6 text-sky-400 group-hover:text-sky-300 transition-colors" aria-hidden />
-                <span className="text-sm font-medium text-slate-200 group-hover:text-slate-100 transition-colors">
-                  {label}
-                </span>
-              </a>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section className="glass p-8 rounded-3xl border-l-4 border-orange-500/50">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-sm font-medium text-slate-400 flex items-center gap-2">
-            <Home className="w-4 h-4" aria-hidden />
-            Home Assistant
-          </h2>
-          <div className="flex items-center gap-3">
-            <select
-              value={haDomain}
-              onChange={(e) => setHaDomain(e.target.value)}
-              className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-              aria-label="Filter by domain"
-            >
-              <option value="">All domains</option>
-              <option value="light">Light</option>
-              <option value="sensor">Sensor</option>
-              <option value="switch">Switch</option>
-              <option value="binary_sensor">Binary sensor</option>
-              <option value="climate">Climate</option>
-              <option value="cover">Cover</option>
-              <option value="automation">Automation</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => fetchHaEntities()}
-              disabled={haLoading}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 disabled:opacity-50 text-sm font-medium transition-colors"
-              aria-label="Refresh entities"
-            >
-              {haLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw className="w-4 h-4" aria-hidden />
-              )}
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {haError && (
-          <p className="mb-4 text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2" role="alert">
-            {haError}
-          </p>
-        )}
-
-        {haLoading && haEntities.length === 0 ? (
-          <p className="text-slate-500 text-sm flex items-center gap-2">
+        <button
+          type="button"
+          onClick={fetchHomeAssistantEntities}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 disabled:opacity-50 text-sm font-medium transition-colors"
+          aria-label="Refresh data"
+        >
+          {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-            Loading entities…
-          </p>
-        ) : haEntities.length === 0 ? (
-          <p className="text-slate-500 text-sm">
-            {haConfigured === false
-              ? 'Home Assistant is not configured. Set HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN in the project root .env (same folder as docker-compose.yml), then restart the backend (e.g. docker-compose down && docker-compose up --build).'
-              : 'No entities to show for this domain. Try "All domains" or another filter.'}
-          </p>
-        ) : (
-          <ul className="space-y-2" role="list">
-            {haEntities.map((entity) => {
-              const name = entity?.attributes?.friendly_name || entity?.entity_id || '—';
-              const state = entity?.state ?? '—';
-              const unit = entity?.attributes?.unit_of_measurement;
-              const stateDisplay = unit ? `${state} ${unit}` : state;
-              return (
-                <li key={entity.entity_id}>
-                  <div className="tile-card flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-100 truncate">{name}</p>
-                      <p className="text-xs text-slate-500 font-mono truncate">{entity.entity_id}</p>
-                    </div>
-                    <span className="flex-shrink-0 text-sm font-medium text-orange-300 tabular-nums">
-                      {stateDisplay}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+          ) : (
+            <RefreshCw className="w-4 h-4" aria-hidden />
+          )}
+          Refresh
+        </button>
       </section>
 
-      {isAdmin && (
-        <section className="glass p-8 rounded-3xl border-l-4 border-sky-500/60">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <h2 className="text-sm font-medium text-slate-400 flex items-center gap-2">
-              <Users className="w-4 h-4" aria-hidden />
-              User management
-            </h2>
-            {loadingUsers && (
-              <span className="text-xs text-slate-500 font-mono">Loading users…</span>
-            )}
-          </div>
-
-          {userError && (
-            <p className="mb-4 text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2" role="alert">
-              {userError}
-            </p>
-          )}
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label htmlFor="admin-new-email" className="block text-sm font-medium text-slate-400 mb-1">
-                  User identifier
-                </label>
-                <input
-                  id="admin-new-email"
-                  type="text"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  required
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50"
-                  placeholder="username or email"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="admin-new-password"
-                  className="block text-sm font-medium text-slate-400 mb-1"
-                >
-                  Temporary password
-                </label>
-                <input
-                  id="admin-new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50"
-                  placeholder="Set an initial password"
-                />
-              </div>
-              <label className="inline-flex items-center gap-2 text-sm text-slate-400 select-none">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-white/20 bg-transparent text-sky-500 focus:ring-sky-500/50"
-                  checked={newIsAdmin}
-                  onChange={(e) => setNewIsAdmin(e.target.checked)}
-                />
-                Grant admin access
-              </label>
-              <div className="pt-1">
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full accent-gradient text-white font-semibold text-sm disabled:opacity-60"
-                >
-                  <Plus className="w-4 h-4" aria-hidden />
-                  {creating ? 'Creating user…' : 'Create user'}
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Existing users
-              </h3>
-              {users.length === 0 ? (
-                <p className="text-sm text-slate-500">No user accounts found.</p>
-              ) : (
-                <ul className="space-y-2" role="list">
-                  {users.map((u) => (
-                    <li key={u.email}>
-                      <div className="tile-card flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-100 truncate">{u.email}</p>
-                          <p className="text-xs text-slate-500">
-                            {u.is_admin ? 'Administrator' : 'Standard user'}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(u.email)}
-                          className="inline-flex items-center justify-center rounded-full border border-red-500/40 text-red-400 hover:bg-red-500/10 w-8 h-8 transition-colors"
-                          title="Delete user"
-                        >
-                          <Trash2 className="w-4 h-4" aria-hidden />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+      {/* Home Assistant connection status */}
+      {haConfigured === false && (
+        <section className="glass p-4 rounded-2xl border-l-4 border-amber-500/60 text-amber-200/90 text-sm">
+          Home Assistant is not configured. Set <code className="bg-black/20 px-1 rounded">HOME_ASSISTANT_URL</code> and <code className="bg-black/20 px-1 rounded">HOME_ASSISTANT_TOKEN</code> in the backend environment to see live data.
+        </section>
+      )}
+      {haError && (
+        <section className="glass p-4 rounded-2xl border-l-4 border-red-500/60 text-red-200/90 text-sm">
+          {haError}
         </section>
       )}
 
-      <section className="glass py-3 px-6 rounded-3xl border-l-4 border-emerald-500/60 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Bell className="w-4 h-4 text-emerald-400 flex-shrink-0" aria-hidden />
-          <p className="text-sm text-slate-400">All systems nominal. No alerts.</p>
-        </div>
-        <div className="flex flex-col items-end text-right">
-          {import.meta.env.VITE_BUILD_TIME && (
-            <div className="text-xs font-mono text-slate-500" title="Deploy build time">
-              Build: {import.meta.env.VITE_BUILD_TIME}
+      {/* Section 1: HOME OVERVIEW */}
+      <section className="glass p-8 rounded-3xl border-l-4 border-sky-500/50">
+        <h2 className="text-lg font-bold mb-6 text-slate-100 flex items-center gap-2">
+          <SunIcon className="w-5 h-5 text-sky-400" aria-hidden />
+          HOME OVERVIEW
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Weather Card */}
+          <div className="glass p-6 rounded-2xl border-l-4 border-sky-400/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Current Weather</h3>
+              <Cloud className="w-5 h-5 text-sky-400" aria-hidden />
             </div>
-          )}
-          <div className="text-xs font-mono text-slate-500">Last checked: just now</div>
+            {(weatherData || weatherTemperatureSensor) ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-4xl font-bold text-slate-100">
+                      {weatherTemperatureSensor != null && weatherTemperatureSensor.state !== undefined && weatherTemperatureSensor.state !== ''
+                        ? `${formatNumber(weatherTemperatureSensor.state)}${weatherTemperatureSensor.attributes?.unit_of_measurement ?? '°F'}`
+                        : weatherData
+                          ? `${formatNumber(weatherData.state)}°F`
+                          : '—'}
+                    </div>
+                    <div className="text-sm text-slate-400 mt-1">
+                      {weatherTemperatureSensor ? 'Outside Temperature' : (weatherData?.attributes?.friendly_name ?? 'Weather')}
+                    </div>
+                  </div>
+                  {weatherData && weatherCondition && (
+                    <div className="flex-shrink-0 ml-4">
+                      <WeatherIcon className="w-16 h-16 text-sky-400" aria-hidden />
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
+                  <div>
+                    <span className="text-slate-500">Humidity:</span>{' '}
+                    {weatherData?.attributes?.humidity ?? '—'}%
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Wind:</span>{' '}
+                    {weatherData?.attributes?.wind_speed ?? '—'} mph
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-slate-500 text-sm">No weather data available</div>
+            )}
+          </div>
+
+          {/* Sun Data Card */}
+          <div className="glass p-6 rounded-2xl border-l-4 border-amber-400/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Sun</h3>
+              <Sun className="w-5 h-5 text-amber-400" aria-hidden />
+            </div>
+            {sunData ? (
+              <div className="space-y-3">
+                <div className="text-lg font-semibold text-slate-100">
+                  {sunData.state === 'above_horizon' ? 'Above Horizon' : 'Below Horizon'}
+                </div>
+                <div className="space-y-2 text-sm text-slate-400">
+                  <div>
+                    <span className="text-slate-500">Sunrise:</span>{' '}
+                    {formatTime(sunData.attributes?.next_rising)}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Sunset:</span>{' '}
+                    {formatTime(sunData.attributes?.next_setting)}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Elevation:</span>{' '}
+                    {formatNumber(sunData.attributes?.elevation)}°
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-slate-500 text-sm">No sun data available</div>
+            )}
+          </div>
+
+          {/* Moon Data Card */}
+          <div className="glass p-6 rounded-2xl border-l-4 border-purple-400/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Moon</h3>
+              <Moon className="w-5 h-5 text-purple-400" aria-hidden />
+            </div>
+            <div className="space-y-3">
+              <div className="text-2xl mb-2">{moonPhase.icon}</div>
+              <div className="text-lg font-semibold text-slate-100">{moonPhase.name}</div>
+              <div className="text-sm text-slate-400">
+                <span className="text-slate-500">Illumination:</span>{' '}
+                {formatNumber(moonPhase.illumination, 0)}%
+              </div>
+            </div>
+          </div>
+
+          {/* House Image Card */}
+          <div className="glass p-6 rounded-2xl border-l-4 border-emerald-500/60">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">House View</h3>
+              <Home className="w-5 h-5 text-emerald-400" aria-hidden />
+            </div>
+            {houseImageUrl ? (
+              <div className="space-y-2">
+                <img
+                  src={houseImageUrl}
+                  alt="Latest house view"
+                  className="w-full h-auto rounded-lg object-cover max-h-64"
+                  onError={(e) => {
+                    console.error('Image load error:', e);
+                    setHouseImageUrl(null);
+                    setHouseImageError('Image failed to load');
+                  }}
+                />
+                <div className="text-xs text-slate-400 text-center space-y-1">
+                  <div>Latest image from Home Assistant</div>
+                  {houseImageMetadata && (
+                    <div className="text-slate-500">
+                      {houseImageMetadata.date_from_filename ? (() => {
+                        // Parse date string as local date (YYYY-MM-DD format)
+                        const [year, month, day] = houseImageMetadata.date_from_filename.split('-').map(Number);
+                        const dateFromFilename = new Date(year, month - 1, day);
+                        return (
+                          <>
+                            {dateFromFilename.toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                            {' • '}
+                          </>
+                        );
+                      })() : null}
+                      {new Date(houseImageMetadata.modified_datetime).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-slate-500 text-sm flex items-center justify-center h-32">
+                <div className="text-center">
+                  <div>{houseImageError || 'No image available'}</div>
+                  {houseImageError && (
+                    <div className="text-xs mt-1 text-red-400">Check browser console for details</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Section 2: ENERGY */}
+      <section className="glass p-8 rounded-3xl border-l-4 border-emerald-500/60">
+        <h2 className="text-lg font-bold mb-6 text-slate-100 flex items-center gap-2">
+          <Zap className="w-5 h-5 text-emerald-400" aria-hidden />
+          ENERGY
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Energy Cards - Stacked vertically */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            {/* Power Consumption Card */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-orange-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Power Consumption</h3>
+                <Activity className="w-4 h-4 text-orange-400" aria-hidden />
+              </div>
+              {powerConsumption ? (
+                <div className="space-y-2">
+                  <div className="text-3xl font-bold text-slate-100">
+                    {formatNumber(powerConsumption.state)} kW
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {powerConsumption.attributes?.friendly_name || 'Consumption'}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+
+            {/* Solar Output Card */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-yellow-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Solar Output</h3>
+                <SunIcon className="w-4 h-4 text-yellow-400" aria-hidden />
+              </div>
+              {solarOutput ? (
+                <div className="space-y-2">
+                  <div className="text-3xl font-bold text-slate-100">
+                    {formatNumber(solarOutput.state)} kW
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {solarOutput.attributes?.friendly_name || 'Solar'}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+
+            {/* Battery Card */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-cyan-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Battery</h3>
+                <Battery className="w-4 h-4 text-cyan-400" aria-hidden />
+              </div>
+              {batteryData ? (
+                <div className="space-y-2">
+                  <div className="text-3xl font-bold text-slate-100">
+                    {formatNumber(batteryData.state)}%
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {batteryData.attributes?.friendly_name || 'Battery'}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+          </div>
+
+          {/* Power Flow Diagram - Wider */}
+          <div className="lg:col-span-3 glass p-4 rounded-2xl border border-emerald-500/30">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Power Flow</h3>
+            <PowerFlowDiagram
+              solarPower={solarPowerKW}
+              batteryPower={batteryPowerKW}
+              batteryLevel={batteryLevel}
+              gridPower={gridPowerKW}
+              homeConsumption={homeConsumptionKW}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3: USAGE STATISTICS */}
+      <section className="glass p-8 rounded-3xl border-l-4 border-purple-500/60">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-purple-400" aria-hidden />
+            USAGE STATISTICS
+          </h2>
+          <div className="flex gap-2">
+            {['day', 'week', 'month', 'year'].map((period) => (
+              <button
+                key={period}
+                type="button"
+                onClick={() => setSelectedPeriod(period)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedPeriod === period
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                    : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10'
+                }`}
+              >
+                {period.charAt(0).toUpperCase() + period.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Graph cards - stacked vertically */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Consumption Graph Placeholder */}
+            <div className="glass p-6 rounded-2xl border border-purple-500/30">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">
+                Consumption Over Time
+              </h3>
+              <div className="h-48 flex items-center justify-center">
+                <div className="text-center text-slate-500 text-sm">
+                  Chart will display consumption data for {selectedPeriod}
+                  <br />
+                  <span className="text-xs text-slate-600">(To be implemented with charting library)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Electricity Cost Over Time Graph Placeholder */}
+            <div className="glass p-6 rounded-2xl border border-purple-500/30">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">
+                Electricity Cost Over Time
+              </h3>
+              <div className="h-48 flex items-center justify-center">
+                <div className="text-center text-slate-500 text-sm">
+                  Chart will display electricity cost data for {selectedPeriod}
+                  <br />
+                  <span className="text-xs text-slate-600">(To be implemented with charting library)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Cost Card */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-purple-400/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Energy Cost</h3>
+                <DollarSign className="w-4 h-4 text-purple-400" aria-hidden />
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-2xl font-bold text-slate-100">$—</div>
+                  <div className="text-xs text-slate-400">Today</div>
+                </div>
+                <div className="pt-4 border-t border-white/10">
+                  <div className="text-lg font-semibold text-slate-100">$—</div>
+                  <div className="text-xs text-slate-400">This {selectedPeriod}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Electric Cost Current Month card - SMUD from HA */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-emerald-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Electric Cost Current Month</h3>
+                <DollarSign className="w-4 h-4 text-emerald-400" aria-hidden />
+              </div>
+              {electricCostCurrentMonth != null ? (
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-slate-100">
+                    {typeof electricCostCurrentMonth.state === 'number' || typeof electricCostCurrentMonth.state === 'string'
+                      ? `$${Number(electricCostCurrentMonth.state).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `$${String(electricCostCurrentMonth.state ?? '—')}`}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {electricCostCurrentMonth.attributes?.friendly_name ?? 'Bill electric cost to date'}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+
+            {/* Projected monthly electric cost - SMUD from HA */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-amber-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Projected Monthly Electric Cost</h3>
+                <DollarSign className="w-4 h-4 text-amber-400" aria-hidden />
+              </div>
+              {projectedMonthlyCost != null ? (
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-slate-100">
+                    {typeof projectedMonthlyCost.state === 'number' || typeof projectedMonthlyCost.state === 'string'
+                      ? `$${Number(projectedMonthlyCost.state).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : String(projectedMonthlyCost.state ?? '—')}
+                  </div>
+                  <div className="text-xs text-slate-400">Forecasted cost this month</div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+
+            {/* Monthly electric usage to date - SMUD from HA */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-sky-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Monthly Electric Usage to Date</h3>
+                <Activity className="w-4 h-4 text-sky-400" aria-hidden />
+              </div>
+              {monthlyUsageToDate != null ? (
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-slate-100">
+                    {typeof monthlyUsageToDate.state === 'number' || typeof monthlyUsageToDate.state === 'string'
+                      ? `${Number(monthlyUsageToDate.state).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${monthlyUsageToDate.attributes?.unit_of_measurement ?? 'kWh'}`
+                      : String(monthlyUsageToDate.state ?? '—')}
+                  </div>
+                  <div className="text-xs text-slate-400">Usage so far this month</div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+
+            {/* Projected monthly electric usage - SMUD from HA */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-indigo-500/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Projected Monthly Electric Usage</h3>
+                <Activity className="w-4 h-4 text-indigo-400" aria-hidden />
+              </div>
+              {projectedMonthlyUsage != null ? (
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-slate-100">
+                    {typeof projectedMonthlyUsage.state === 'number' || typeof projectedMonthlyUsage.state === 'string'
+                      ? `${Number(projectedMonthlyUsage.state).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${projectedMonthlyUsage.attributes?.unit_of_measurement ?? 'kWh'}`
+                      : String(projectedMonthlyUsage.state ?? '—')}
+                  </div>
+                  <div className="text-xs text-slate-400">Forecasted usage this month</div>
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">No data</div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
     </div>

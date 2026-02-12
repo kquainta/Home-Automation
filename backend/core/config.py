@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # Home Assistant (optional; leave empty to disable integration)
     HOME_ASSISTANT_URL: str = ""
     HOME_ASSISTANT_TOKEN: str = ""
+    # Home Assistant media path for house images (Windows UNC path or mounted volume path)
+    # For Docker: mount the network share and use the container path (e.g., /mnt/ha-media)
+    # For local dev: use UNC path (e.g., \\homeassistant\media) or mapped drive (e.g., Z:\media)
+    HA_MEDIA_PATH: str = r"\\homeassistant\media"
 
     class Config:
         env_file = str(_ENV_FILE) if _ENV_FILE.exists() else None
